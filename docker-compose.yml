@@ -1,0 +1,37 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: boah
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  backend:
+    build: ./backend
+    ports:
+      - "8080:8080"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/boah
+      DATABASE_URL_SYNC: postgresql+psycopg2://postgres:postgres@db:5432/boah
+      USE_LOCAL_STORAGE: "false"
+      USE_MOCK_EXTRACTION: "false"
+      GCP_PROJECT_ID: ${GCP_PROJECT_ID}
+      GCS_STAGING_BUCKET: ${GCS_STAGING_BUCKET:-boah-staging}
+      GCS_RAW_FORMS_BUCKET: ${GCS_RAW_FORMS_BUCKET:-boah-raw-forms}
+      GCS_ARCHIVE_BUCKET: ${GCS_ARCHIVE_BUCKET:-boah-archive}
+    depends_on:
+      - db
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "3000:8080"
+    depends_on:
+      - backend
+
+volumes:
+  pgdata:
