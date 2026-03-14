@@ -162,7 +162,7 @@ export default function ReviewPage() {
           {doc.gcs_raw_uri ? (
             doc.original_filename?.toLowerCase().endsWith(".pdf") ? (
               <iframe
-                src={`${import.meta.env.VITE_API_URL || "http://localhost:8080"}/api/documents/${docId}/file`}
+                src={`${import.meta.env.VITE_API_URL || "http://localhost:8080"}/api/documents/${docId}/file#navpanes=0`}
                 className="doc-iframe"
                 title="Scanned document"
               />

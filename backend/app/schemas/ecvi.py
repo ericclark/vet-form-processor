@@ -71,6 +71,7 @@ class AnimalTag(BaseModel):
 
 
 class AnimalSchema(BaseModel):
+    HeadCount: Optional[int] = 1
     SpeciesCode: Optional[str] = None
     SpeciesOther: Optional[str] = None
     Breed: Optional[str] = None
@@ -85,6 +86,9 @@ class ECVIData(BaseModel):
     IssueDate: Optional[str] = None
     ExpirationDate: Optional[str] = None
     ShipmentDate: Optional[str] = None
+    PageNumber: Optional[int] = None
+    TotalPages: Optional[int] = None
+    TotalAnimals: Optional[int] = None
     Veterinarian: Optional[VeterinarianSchema] = None
     MovementPurposes: Optional[MovementPurposesSchema] = None
     Origin: Optional[LocationSchema] = None

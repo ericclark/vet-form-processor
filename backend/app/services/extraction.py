@@ -28,10 +28,12 @@ RULES:
    - MfrRFID: starts with "900"-"999" (not 999) followed by 12 digits
    - OtherOfficialID: any other official government ID
    - ManagementID: farm/ranch management tags
-7. Evaluate overall legibility. Set is_form_readable to false only if the form is mostly illegible.
-8. Score your confidence 0.0-1.0 in overall_confidence_score.
-9. List JSON paths of any field where handwriting is ambiguous in low_confidence_fields (e.g., "eCVI.Veterinarian.LastName").
-10. State codes must be 2-letter US postal abbreviations (e.g., "IN" for Indiana).
+7. Look for page numbers and total pages (e.g., "Page 1 of 3") and the total number of animals if specified on the form.
+8. If an animal row has a line drawn or states a range (like 1-10), calculate the total number of animals in that range and output it as HeadCount. Default HeadCount to 1.
+9. Evaluate overall legibility. Set is_form_readable to false only if the form is mostly illegible.
+10. Score your confidence 0.0-1.0 in overall_confidence_score.
+11. List JSON paths of any field where handwriting is ambiguous in low_confidence_fields (e.g., "eCVI.Veterinarian.LastName").
+12. State codes must be 2-letter US postal abbreviations (e.g., "IN" for Indiana).
 
 Return ONLY valid JSON matching this structure:
 {
@@ -45,6 +47,9 @@ Return ONLY valid JSON matching this structure:
     "IssueDate": "<YYYY-MM-DD or null>",
     "ExpirationDate": "<YYYY-MM-DD or null>",
     "ShipmentDate": "<YYYY-MM-DD or null>",
+    "PageNumber": <integer or null>,
+    "TotalPages": <integer or null>,
+    "TotalAnimals": <integer or null>,
     "Veterinarian": {
       "FirstName": "<string or null>",
       "LastName": "<string or null>",
@@ -83,6 +88,7 @@ Return ONLY valid JSON matching this structure:
     },
     "Animals": [
       {
+        "HeadCount": <integer, default 1>,
         "SpeciesCode": "<3-letter code or null>",
         "SpeciesOther": "<string or null>",
         "Breed": "<string or null>",
@@ -118,6 +124,9 @@ def _mock_extraction() -> ExtractionResult:
             "IssueDate": "2026-03-01",
             "ExpirationDate": "2026-03-31",
             "ShipmentDate": "2026-03-05",
+            "PageNumber": 1,
+            "TotalPages": 2,
+            "TotalAnimals": 15,
             "Veterinarian": {
                 "FirstName": "James",
                 "LastName": "Herriot",
@@ -156,6 +165,7 @@ def _mock_extraction() -> ExtractionResult:
             },
             "Animals": [
                 {
+                    "HeadCount": 10,
                     "SpeciesCode": "BEF",
                     "SpeciesOther": None,
                     "Breed": "Angus",
@@ -200,6 +210,40 @@ async def extract_from_document(file_bytes: bytes, mime_type: str) -> Extraction
     if settings.use_mock_extraction:
         logger.info("Using mock extraction (USE_MOCK_EXTRACTION=true)")
         return _mock_extraction()
+
+    if settings.gemini_api_key:
+        logger.info("Using google.generativeai with GEMINI_API_KEY")
+        import google.generativeai as genai
+
+        genai.configure(api_key=settings.gemini_api_key)
+        
+        # When using the regular API, model names might not need the project/location
+        # but we need to ensure the model name is correct, typically "gemini-1.5-pro" etc.
+        # Fallback to a standard model name if the current one is vertex specific.
+        model_name = settings.gemini_model if not settings.gemini_model.startswith("gemini-2.5-pro") else "gemini-2.5-pro-preview-0409" # just an example or we can just pass settings.gemini_model if it works. Wait, Google GenAI SDK doesn't have 2.5 pro yet? Wait, it has gemini-2.5-pro or gemini-2.5-flash.
+        # Let's just pass the settings.gemini_model, usually "gemini-2.5-pro" works in both now if they have access, or "gemini-1.5-pro".
+        # Actually, let's just use settings.gemini_model.
+        model = genai.GenerativeModel(
+            settings.gemini_model,
+            generation_config=genai.types.GenerationConfig(
+                response_mime_type="application/json",
+                temperature=0.1,
+                max_output_tokens=8192,
+            ),
+        )
+
+        response = model.generate_content(
+            [
+                EXTRACTION_PROMPT,
+                {"mime_type": mime_type, "data": file_bytes},
+            ]
+        )
+
+        raw_text = response.text
+        logger.info("Gemini raw response length: %d", len(raw_text))
+
+        parsed = json.loads(raw_text)
+        return ExtractionResult.model_validate(parsed)
 
     import vertexai
     from vertexai.generative_models import GenerativeModel, Part

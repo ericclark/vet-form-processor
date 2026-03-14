@@ -28,6 +28,7 @@ class Settings(BaseSettings):
     gcp_project_id: str = ""
     gcp_location: str = "us-central1"
     gemini_model: str = "gemini-2.5-pro"
+    gemini_api_key: str | None = None
 
     # Upload limits
     max_upload_size_mb: int = 50
@@ -38,7 +39,7 @@ class Settings(BaseSettings):
         "application/zip",
     ]
 
-    model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
+    model_config = {"env_file": [".env", "../.env"], "env_file_encoding": "utf-8", "extra": "ignore"}
 
     @property
     def storage_root(self) -> Path:

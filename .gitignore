@@ -28,3 +28,8 @@ local_storage/
 # Build artifacts
 *.egg
 *.whl
+samples/32B418452.pdf
+samples/32B418454.pdf
+.gitignore
+.gitignore
+samples/32B418455.pdf
